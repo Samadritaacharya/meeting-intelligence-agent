@@ -57,6 +57,16 @@ def safe_email_body(value: object) -> str:
     return escaped.replace("&lt;br&gt;", "<br>").replace("&lt;br/&gt;", "<br>").replace("&lt;br /&gt;", "<br>")
 
 
+def get_secret(name: str) -> str | None:
+    try:
+        value = st.secrets.get(name)
+        if value:
+            return str(value)
+    except Exception:
+        pass
+    return os.getenv(name)
+
+
 if "analysis_result" not in st.session_state:
     st.session_state.analysis_result = None
 if "transcript" not in st.session_state:
@@ -77,8 +87,11 @@ with st.sidebar:
     meeting_title = st.text_input("Meeting title", value="Product Strategy Sync")
     participants = st.text_input("Participants", value="Product, Engineering, Operations")
     st.markdown("---")
-    api_present = bool(os.getenv("ANTHROPIC_API_KEY") or st.secrets.get("ANTHROPIC_API_KEY", None))
-    st.success("Claude API configured") if api_present else st.info("Demo mode: add ANTHROPIC_API_KEY for Claude analysis")
+    api_present = bool(get_secret("ANTHROPIC_API_KEY"))
+    if api_present:
+        st.success("Claude API key detected")
+    else:
+        st.info("Demo mode: add ANTHROPIC_API_KEY for Claude analysis")
     st.markdown("### 🔐 Privacy")
     st.caption("No secrets are stored in GitHub. Use .env locally or Streamlit Secrets in deployment.")
 
@@ -149,6 +162,9 @@ with tab3:
 result = st.session_state.analysis_result
 if result:
     st.markdown('<div class="section-title">Analysis results</div>', unsafe_allow_html=True)
+    mode = result.get("analysis_mode")
+    if mode and mode != "claude_api":
+        st.info("Demo/fallback mode is active. Add a valid Anthropic API key for live Claude analysis.")
 
     with st.expander("📋 Executive Summary", expanded=True):
         st.markdown(f'<div class="result-block"><div class="result-label">Summary</div>{esc(result.get("executive_summary"))}</div>', unsafe_allow_html=True)

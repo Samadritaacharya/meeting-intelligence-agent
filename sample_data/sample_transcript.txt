@@ -1,0 +1,10 @@
+Elena: Thanks everyone. Today we need to finalize the Q2 roadmap for FinTrack Berlin and clarify blockers for the beta launch.
+Marcus: The onboarding flow is almost ready, but we still have a dependency on the identity verification API. If the vendor slips by another week, our launch date is at risk.
+Sarah: Decision proposal: keep the beta scope limited to expense categorization, dashboard insights, and weekly email summaries. We should push tax export to the next release.
+Elena: Agreed. Decision: beta scope is expense categorization, dashboard insights, and weekly email summaries. Tax export moves to Q3.
+Priya: I will update the Jira roadmap by Friday and add the new scope notes.
+Marcus: I will contact the identity verification vendor today and ask for a confirmed delivery date.
+Sarah: I can prepare the customer feedback template by Monday.
+Elena: Open question: do we have legal approval to use anonymized transaction examples in the demo?
+Priya: Risk: if legal approval takes more than two weeks, the demo environment will need synthetic data only.
+Elena: Action item for me: check with Legal and confirm data rules by Wednesday. Let's follow up next week.

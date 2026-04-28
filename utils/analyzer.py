@@ -18,14 +18,15 @@ def _get_api_key() -> str | None:
         import streamlit as st  # type: ignore
         key = st.secrets.get("ANTHROPIC_API_KEY") if hasattr(st, "secrets") else None
         if key:
-            return str(key)
+            return str(key).strip()
     except Exception:
         pass
-    return os.getenv("ANTHROPIC_API_KEY")
+    key = os.getenv("ANTHROPIC_API_KEY")
+    return key.strip() if key else None
 
 
-def _fallback_analysis(transcript: str, meeting_title: str = "Meeting") -> Dict[str, Any]:
-    """Deterministic fallback so the app remains demoable without an API key."""
+def _fallback_analysis(transcript: str, meeting_title: str = "Meeting", reason: str = "no_api_key") -> Dict[str, Any]:
+    """Deterministic fallback so the app remains demoable without a valid API key."""
     lines = [line.strip() for line in transcript.splitlines() if line.strip()]
     text = " ".join(lines)
     sentences = re.split(r"(?<=[.!?])\s+", text)
@@ -55,7 +56,7 @@ def _fallback_analysis(transcript: str, meeting_title: str = "Meeting") -> Dict[
             "subject": f"Follow-up: {meeting_title}",
             "body": "Hi team,<br><br>Sharing a quick AI-generated meeting follow-up with summary, decisions, and next steps. Please review the action items and confirm any missing owners or deadlines.<br><br>Best regards,",
         },
-        "analysis_mode": "demo_fallback_no_api_key",
+        "analysis_mode": f"demo_fallback_{reason}",
     }
 
 
@@ -80,11 +81,11 @@ def analyze_meeting(transcript: str, meeting_title: str = "Meeting", participant
         raise ValueError("Please provide a longer meeting transcript.")
 
     api_key = _get_api_key()
-    if not api_key:
-        return _fallback_analysis(transcript, meeting_title)
+    if not api_key or "your-api-key" in api_key or "your-real-key" in api_key:
+        return _fallback_analysis(transcript, meeting_title, "missing_or_placeholder_api_key")
 
     try:
-        from anthropic import Anthropic
+        from anthropic import Anthropic, AuthenticationError
     except ImportError as exc:
         raise RuntimeError("anthropic package is not installed. Run: pip install anthropic") from exc
 
@@ -110,12 +111,16 @@ Transcript:
 {transcript[:35000]}
 """
 
-    response = client.messages.create(
-        model=os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
-        max_tokens=2500,
-        temperature=0.2,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    try:
+        response = client.messages.create(
+            model=os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+            max_tokens=2500,
+            temperature=0.2,
+            messages=[{"role": "user", "content": prompt}],
+        )
+    except AuthenticationError:
+        return _fallback_analysis(transcript, meeting_title, "invalid_api_key")
+
     content = "".join(block.text for block in response.content if getattr(block, "type", None) == "text")
     parsed = _extract_json(content)
     parsed.setdefault("executive_summary", "No summary generated.")

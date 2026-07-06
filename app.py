@@ -5,12 +5,20 @@ import os
 import tempfile
 import time
 from pathlib import Path
+from typing import Any, Dict, List
 
+import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
 from utils.analyzer import analyze_meeting, transcribe_audio
-from utils.exporter import export_to_docx, export_to_pdf
+from utils.exporter import (
+    export_actions_to_jira_csv,
+    export_risks_to_csv,
+    export_to_docx,
+    export_to_markdown,
+    export_to_pdf,
+)
 
 load_dotenv()
 
@@ -29,7 +37,7 @@ CSS = """
 .hero { background: linear-gradient(135deg,#ff9f45 0%,#ff6b35 48%,#e85d04 100%); border-radius: 28px; padding: 3.2rem 2.7rem; box-shadow: 0 28px 90px rgba(255,107,53,.30); margin-bottom: 2rem; position:relative; overflow:hidden; }
 .hero:after { content:''; position:absolute; width:380px; height:380px; border-radius:999px; right:-90px; top:-120px; background:rgba(255,255,255,.18); filter:blur(80px); }
 .hero h1 { font-size: clamp(2.2rem, 5vw, 4.4rem); line-height:1; margin:0 0 .9rem; color:white; letter-spacing:-.06em; font-weight:800; position:relative; z-index:2; }
-.hero p { font-size:1.15rem; max-width:900px; color:rgba(255,255,255,.94); margin:0; position:relative; z-index:2; }
+.hero p { font-size:1.15rem; max-width:950px; color:rgba(255,255,255,.94); margin:0; position:relative; z-index:2; }
 .metric-card, .card { background: rgba(255,255,255,.055); border:1px solid rgba(255,140,66,.24); border-radius:18px; padding:1.25rem; box-shadow:0 12px 35px rgba(0,0,0,.22); backdrop-filter: blur(14px); }
 .metric-card { text-align:center; }
 .metric-card .num { color:#ffb86b; font-size:2rem; font-weight:800; }
@@ -43,9 +51,28 @@ CSS = """
 .stTabs [aria-selected="true"] { background:linear-gradient(135deg,#ff9f45,#ff6b35); color:white; border-radius:12px; }
 [data-testid="stSidebar"] { background:rgba(12,13,24,.78); border-right:1px solid rgba(255,140,66,.18); }
 .small { color:#cbd5e1; font-size:.92rem; }
+.template-chip { display:inline-block; background:rgba(255,184,107,.15); border:1px solid rgba(255,184,107,.25); padding:.35rem .65rem; border-radius:999px; margin:.15rem; color:#ffd7a3; font-size:.84rem; }
 </style>
 """
 st.markdown(CSS, unsafe_allow_html=True)
+
+MEETING_TYPES = [
+    "Project sync",
+    "Steering committee",
+    "Incident review",
+    "Sprint planning",
+    "Vendor discussion",
+    "Stakeholder workshop",
+]
+
+PMO_TEMPLATES = {
+    "Project sync": "Progress, blockers, owners, dependencies, timeline risk, and next actions.",
+    "Steering committee": "Executive summary, RAG status, decisions needed, risks, escalations, and leadership asks.",
+    "Incident review": "Timeline, impact, root cause, remediation, prevention actions, and accountable owners.",
+    "Sprint planning": "Sprint goal, backlog scope, acceptance criteria, dependencies, and delivery risk.",
+    "Vendor discussion": "Commitments, SLA questions, dependencies, commercial/technical follow-ups, and owners.",
+    "Stakeholder workshop": "Requirements, decisions, concerns, action items, open questions, and alignment gaps.",
+}
 
 
 def esc(value: object) -> str:
@@ -67,6 +94,58 @@ def get_secret(name: str) -> str | None:
     return os.getenv(name)
 
 
+def as_list(value: Any) -> List[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def action_rows(result: Dict[str, Any]) -> List[Dict[str, str]]:
+    rows: List[Dict[str, str]] = []
+    for item in as_list(result.get("action_items")):
+        if isinstance(item, dict):
+            rows.append(
+                {
+                    "Owner": str(item.get("owner") or "TBD"),
+                    "Action": str(item.get("action") or item.get("description") or item.get("summary") or "Review follow-up item"),
+                    "Due Date": str(item.get("due_date") or item.get("deadline") or "TBD"),
+                    "Priority": str(item.get("priority") or "Medium"),
+                    "Status": str(item.get("status") or "Open"),
+                }
+            )
+        else:
+            rows.append({"Owner": "TBD", "Action": str(item), "Due Date": "TBD", "Priority": "Medium", "Status": "Open"})
+    return rows
+
+
+def risk_rows(result: Dict[str, Any]) -> List[Dict[str, str]]:
+    rows: List[Dict[str, str]] = []
+    for item in as_list(result.get("risks_flagged")):
+        if isinstance(item, dict):
+            rows.append(
+                {
+                    "Risk": str(item.get("risk") or item.get("description") or "Unspecified risk"),
+                    "Impact": str(item.get("impact") or "Medium"),
+                    "Likelihood": str(item.get("likelihood") or "Medium"),
+                    "Mitigation": str(item.get("mitigation") or "Define mitigation and owner."),
+                    "Owner": str(item.get("owner") or "TBD"),
+                }
+            )
+        else:
+            rows.append(
+                {
+                    "Risk": str(item),
+                    "Impact": "Medium",
+                    "Likelihood": "Medium",
+                    "Mitigation": "Define mitigation and owner.",
+                    "Owner": "TBD",
+                }
+            )
+    return rows
+
+
 if "analysis_result" not in st.session_state:
     st.session_state.analysis_result = None
 if "transcript" not in st.session_state:
@@ -76,7 +155,7 @@ st.markdown(
     """
     <div class="hero">
       <h1>🎙️ Meeting Intelligence Agent</h1>
-      <p>Convert raw meeting transcripts into executive summaries, key decisions, action items, risks, open questions, and ready-to-send follow-up emails — powered by Claude.</p>
+      <p>Convert raw meeting transcripts into PMO-ready executive summaries, decisions, action tables, risk registers, open questions, follow-up emails, and exportable reports — powered by Claude or demo fallback mode.</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -86,6 +165,8 @@ with st.sidebar:
     st.markdown("## ⚙️ Meeting setup")
     meeting_title = st.text_input("Meeting title", value="Product Strategy Sync")
     participants = st.text_input("Participants", value="Product, Engineering, Operations")
+    meeting_type = st.selectbox("Meeting type / PMO template", MEETING_TYPES, index=0)
+    st.markdown(f'<span class="template-chip">{esc(PMO_TEMPLATES[meeting_type])}</span>', unsafe_allow_html=True)
     st.markdown("---")
     api_present = bool(get_secret("ANTHROPIC_API_KEY"))
     if api_present:
@@ -97,9 +178,9 @@ with st.sidebar:
 
 col_a, col_b, col_c, col_d = st.columns(4)
 for col, num, label in [
-    (col_a, "10s", "Analysis target"),
+    (col_a, "6", "PMO templates"),
     (col_b, "JSON", "Structured output"),
-    (col_c, "PDF/DOCX", "Export ready"),
+    (col_c, "PDF/DOCX/CSV/MD", "Export ready"),
     (col_d, "Secure", "Secrets safe"),
 ]:
     with col:
@@ -118,7 +199,7 @@ with tab1:
     if st.button("✨ Analyze transcript", use_container_width=True):
         with st.spinner("Analyzing meeting..."):
             try:
-                st.session_state.analysis_result = analyze_meeting(transcript, meeting_title, participants)
+                st.session_state.analysis_result = analyze_meeting(transcript, meeting_title, participants, meeting_type)
                 st.session_state.transcript = transcript
                 st.success("Analysis complete")
             except Exception as exc:
@@ -138,7 +219,7 @@ with tab2:
                 transcript = transcribe_audio(tmp_path)
                 st.session_state.transcript = transcript
             with st.spinner("Analyzing transcript..."):
-                st.session_state.analysis_result = analyze_meeting(transcript, meeting_title, participants)
+                st.session_state.analysis_result = analyze_meeting(transcript, meeting_title, participants, meeting_type)
             st.success("Audio analyzed")
         except Exception as exc:
             st.error(str(exc))
@@ -156,7 +237,7 @@ with tab3:
             sample = sample_path.read_text(encoding="utf-8")
             with st.spinner("Analyzing sample meeting..."):
                 st.session_state.transcript = sample
-                st.session_state.analysis_result = analyze_meeting(sample, "FinTrack Berlin - Q2 Planning", "Elena, Marcus, Sarah, Priya")
+                st.session_state.analysis_result = analyze_meeting(sample, "FinTrack Berlin - Q2 Planning", "Elena, Marcus, Sarah, Priya", meeting_type)
             st.success("Sample analysis complete")
 
 result = st.session_state.analysis_result
@@ -166,26 +247,39 @@ if result:
     if mode and mode != "claude_api":
         st.info("Demo/fallback mode is active. Add a valid Anthropic API key for live Claude analysis.")
 
+    pmo_status = result.get("pmo_status", {}) or {}
+    if pmo_status:
+        st.markdown('<div class="section-title">PMO Status</div>', unsafe_allow_html=True)
+        s1, s2, s3, s4 = st.columns(4)
+        s1.metric("RAG Status", pmo_status.get("rag_status", "TBD"))
+        s2.metric("Health", pmo_status.get("overall_health", "TBD"))
+        s3.metric("Decision Needed", pmo_status.get("decision_needed", "TBD"))
+        s4.metric("Next Review", pmo_status.get("next_review", "TBD"))
+
     with st.expander("📋 Executive Summary", expanded=True):
         st.markdown(f'<div class="result-block"><div class="result-label">Summary</div>{esc(result.get("executive_summary"))}</div>', unsafe_allow_html=True)
 
-    decisions = result.get("key_decisions", []) or []
-    actions = result.get("action_items", []) or []
-    risks = result.get("risks_flagged", []) or []
-    questions = result.get("open_questions", []) or []
+    decisions = as_list(result.get("key_decisions"))
+    actions = action_rows(result)
+    risks = risk_rows(result)
+    questions = as_list(result.get("open_questions"))
 
     col1, col2 = st.columns(2)
     with col1:
         with st.expander(f"✅ Key Decisions ({len(decisions)})", expanded=True):
             for i, item in enumerate(decisions, 1):
                 st.markdown(f'<div class="result-block"><div class="result-label">Decision {i}</div>{esc(item)}</div>', unsafe_allow_html=True)
-        with st.expander(f"⚠️ Risks ({len(risks)})", expanded=False):
-            for item in risks:
-                st.markdown(f'<div class="result-block">{esc(item)}</div>', unsafe_allow_html=True)
+        with st.expander(f"⚠️ Risk Register ({len(risks)})", expanded=True):
+            if risks:
+                st.dataframe(pd.DataFrame(risks), use_container_width=True, hide_index=True)
+            else:
+                st.caption("No risks detected.")
     with col2:
-        with st.expander(f"🎯 Action Items ({len(actions)})", expanded=True):
-            for i, item in enumerate(actions, 1):
-                st.markdown(f'<div class="result-block"><div class="result-label">Action {i}</div>{esc(item)}</div>', unsafe_allow_html=True)
+        with st.expander(f"🎯 Action Item Table ({len(actions)})", expanded=True):
+            if actions:
+                st.dataframe(pd.DataFrame(actions), use_container_width=True, hide_index=True)
+            else:
+                st.caption("No action items detected.")
         with st.expander(f"❓ Open Questions ({len(questions)})", expanded=False):
             for item in questions:
                 st.markdown(f'<div class="result-block">{esc(item)}</div>', unsafe_allow_html=True)
@@ -198,18 +292,39 @@ if result:
     )
 
     st.markdown('<div class="section-title">Export</div>', unsafe_allow_html=True)
-    e1, e2 = st.columns(2)
+    e1, e2, e3, e4 = st.columns(4)
+    timestamp = int(time.time())
     with e1:
         try:
             pdf = export_to_pdf(result)
-            st.download_button("📄 Download PDF", data=pdf, file_name=f"meeting_report_{int(time.time())}.pdf", mime="application/pdf", use_container_width=True)
+            st.download_button("📄 PDF Report", data=pdf, file_name=f"meeting_report_{timestamp}.pdf", mime="application/pdf", use_container_width=True)
         except Exception as exc:
             st.error(f"PDF export unavailable: {exc}")
     with e2:
         try:
             docx = export_to_docx(result)
-            st.download_button("📝 Download DOCX", data=docx, file_name=f"meeting_report_{int(time.time())}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
+            st.download_button("📝 DOCX Report", data=docx, file_name=f"meeting_report_{timestamp}.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True)
         except Exception as exc:
             st.error(f"DOCX export unavailable: {exc}")
+    with e3:
+        try:
+            jira_csv = export_actions_to_jira_csv(result)
+            st.download_button("🎫 Jira CSV", data=jira_csv, file_name=f"jira_action_items_{timestamp}.csv", mime="text/csv", use_container_width=True)
+        except Exception as exc:
+            st.error(f"CSV export unavailable: {exc}")
+    with e4:
+        try:
+            markdown = export_to_markdown(result)
+            st.download_button("📌 Notion/MD", data=markdown, file_name=f"meeting_notes_{timestamp}.md", mime="text/markdown", use_container_width=True)
+        except Exception as exc:
+            st.error(f"Markdown export unavailable: {exc}")
 
-st.caption("Built by Samadrita Acharya · AI portfolio project · Claude API + Streamlit + Python")
+    r1, _ = st.columns([1, 3])
+    with r1:
+        try:
+            risk_csv = export_risks_to_csv(result)
+            st.download_button("⚠️ Risk CSV", data=risk_csv, file_name=f"risk_register_{timestamp}.csv", mime="text/csv", use_container_width=True)
+        except Exception as exc:
+            st.error(f"Risk export unavailable: {exc}")
+
+st.caption("Built by Samadrita Acharya · AI portfolio project · Claude API + Streamlit + Python · PMO-ready workflow automation")

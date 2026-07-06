@@ -1,63 +1,109 @@
 # 🎙️ Meeting Intelligence Agent
 
-> Premium AI-powered meeting analysis app that turns transcripts into executive summaries, decisions, risks, action items, and ready-to-send follow-up emails.
+> AI-powered PMO workflow assistant that turns raw meeting transcripts into executive summaries, decisions, action-item tables, risk registers, open questions, follow-up emails, and export-ready reports.
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
 ![Streamlit](https://img.shields.io/badge/Streamlit-App-ff4b4b)
 ![Claude](https://img.shields.io/badge/Claude-API-orange)
+![PMO](https://img.shields.io/badge/PMO-Workflow%20Automation-purple)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-## ✨ What this project does
+## Demo
 
-Meeting Intelligence Agent helps product, project, operations, and leadership teams convert messy meeting transcripts into structured, actionable outputs.
+- **Live app:** Deployment-ready; add Streamlit Cloud URL after deployment.
+- **Screenshots:** See `assets/screenshots/` after adding exported app screenshots.
+- **Demo mode:** Works without an API key through deterministic fallback analysis.
 
-The app can generate:
+---
 
-- 📌 Executive summaries
-- ✅ Action items
-- 🧠 Key decisions
-- ⚠️ Risks and blockers
-- ❓ Open questions
-- 📧 Follow-up email drafts
-- 📄 Export-ready PDF and Word documents
+## Business problem
 
-It is designed as a portfolio-quality AI product demonstrating practical LLM integration, structured prompting, UX thinking, security awareness, and deployment readiness.
+Project, product, operations, and cloud-delivery meetings often produce unstructured notes. Decisions, owners, risks, deadlines, and open questions can become unclear after the meeting, especially in cross-functional environments.
 
-## 🧩 Product narrative
+This project solves that workflow problem by converting meeting transcripts into PMO-ready outputs that can be reviewed, exported, and reused for follow-ups, Jira imports, risk registers, and stakeholder communication.
 
-Most meetings create unstructured notes, unclear ownership, and follow-up gaps. This project solves that workflow with a simple AI-first interface:
+---
 
-1. Paste a transcript or load the sample meeting.
-2. Claude analyzes the meeting using a structured JSON prompt.
-3. The UI renders PM-ready outputs in a premium orange/dark interface.
-4. Users can export the results or copy the follow-up email.
+## Solution
 
-## 🛠️ Tech stack
+The app provides a simple workflow:
+
+1. Select the meeting type / PMO template.
+2. Paste a transcript, upload audio, or load the sample transcript.
+3. Analyze the meeting with Claude API or fallback demo mode.
+4. Review structured outputs: summary, decisions, action table, risks, open questions, PMO status, and follow-up email.
+5. Export the results to PDF, DOCX, Jira-ready CSV, risk CSV, or Markdown/Notion notes.
+
+---
+
+## Key features
+
+- Executive meeting summaries
+- Key decision extraction
+- Structured action-item table with owner, action, due date, priority, and status
+- Risk register with impact, likelihood, mitigation, and owner
+- Open-question extraction
+- PMO status card with RAG status, health, decision needed, and next review
+- Meeting templates for:
+  - Project sync
+  - Steering committee
+  - Incident review
+  - Sprint planning
+  - Vendor discussion
+  - Stakeholder workshop
+- Follow-up email draft
+- PDF and DOCX report export
+- Jira-ready CSV export for action items
+- Risk CSV export
+- Markdown export for Notion/GitHub notes
+- Optional local audio transcription with Whisper
+- Secure secret handling through `.env` or Streamlit Secrets
+- Demo/fallback mode for portfolio review without API keys
+
+---
+
+## Tech stack
 
 | Layer | Technology |
 |---|---|
 | Frontend | Streamlit |
 | AI Engine | Anthropic Claude API |
 | Language | Python |
+| Data display | Pandas |
 | Config | python-dotenv + Streamlit Secrets |
-| Export | python-docx + fpdf2 |
+| Export | python-docx, fpdf2, CSV, Markdown |
 | Deployment | Streamlit Cloud / Docker |
 | CI | GitHub Actions |
 
-## 🔐 Security-first design
+---
 
-This repository is safe for public GitHub usage:
+## Architecture
 
-- No API keys are committed.
-- `.env` and Streamlit secrets are ignored.
-- `.env.example` is provided for local setup.
-- User and AI-generated text is escaped before being rendered inside custom HTML cards.
-- Claude receives only the submitted transcript text and optional metadata.
-- A fallback demo mode works without an API key for portfolio review.
+```text
+meeting-intelligence-agent/
+├── app.py                         # Streamlit UI and PMO workflow
+├── requirements.txt
+├── README.md
+├── SECURITY.md
+├── DEPLOYMENT.md
+├── Dockerfile
+├── .env.example
+├── .gitignore
+├── .streamlit/
+│   ├── config.toml
+│   └── secrets.toml.example
+├── assets/
+│   └── screenshots/
+├── sample_data/
+│   └── sample_transcript.txt
+└── utils/
+    ├── analyzer.py                # Claude prompt + fallback analysis
+    └── exporter.py                # PDF, DOCX, CSV, Markdown exports
+```
 
-See [SECURITY.md](SECURITY.md) for details.
+---
 
-## 🚀 Quick start locally
+## Quick start locally
 
 ```bash
 git clone https://github.com/Samadritaacharya/meeting-intelligence-agent.git
@@ -90,7 +136,7 @@ Create local environment file:
 cp .env.example .env
 ```
 
-On Windows, you can also create it manually:
+On Windows, create it manually if needed:
 
 ```powershell
 copy .env.example .env
@@ -115,9 +161,11 @@ Open:
 http://localhost:8501
 ```
 
-## 🌐 Deploy on Streamlit Cloud
+---
 
-1. Go to <https://share.streamlit.io/>
+## Deploy on Streamlit Cloud
+
+1. Go to Streamlit Community Cloud.
 2. Create a new app.
 3. Select this repository.
 4. Use:
@@ -133,57 +181,85 @@ Main file path: app.py
 ANTHROPIC_API_KEY = "sk-ant-your-real-key-here"
 ```
 
-6. Deploy and share the public URL.
+6. Deploy and add the public URL to this README under **Demo**.
 
-## 🧪 Demo mode
+---
 
-The app includes a sample transcript and can run without an API key using deterministic fallback analysis. This makes the project reviewable even before configuring secrets.
+## Example use case
 
-## 📂 Repository structure
+A project manager or PMO analyst pastes a steering committee transcript. The app produces a leadership-ready summary, decisions, RAG status, risks, owners, action items, open questions, a follow-up email, and export-ready files for Jira, Notion, or project documentation.
 
-```text
-meeting-intelligence-agent/
-├── app.py
-├── requirements.txt
-├── README.md
-├── SECURITY.md
-├── DEPLOYMENT.md
-├── Dockerfile
-├── .env.example
-├── .gitignore
-├── .streamlit/
-│   ├── config.toml
-│   └── secrets.toml.example
-├── sample_data/
-│   └── sample_transcript.txt
-└── utils/
-    ├── __init__.py
-    ├── analyzer.py
-    └── exporter.py
-```
+---
 
-## 🎯 Why this is portfolio-relevant
+## Skills demonstrated
 
-This project demonstrates skills that are highly relevant for AI product, AI operations, and technical project management roles:
+- AI workflow design
+- PMO process automation
+- Prompt engineering and structured JSON output handling
+- Risk and action-item extraction
+- Executive communication support
+- Jira-ready CSV workflow thinking
+- Exportable project documentation
+- Secure secrets management
+- Streamlit application development
+- Recruiter-friendly product packaging
 
-- Building usable AI workflows instead of notebooks only
-- Translating a business pain point into a working product
-- Structured LLM prompting and JSON output handling
-- Secure secret management and deployment readiness
-- UX-focused product packaging
-- Documentation quality for open-source users
+---
 
-## 🗺️ Roadmap
+## Why this project is relevant to my target roles
 
-- [ ] Add audio upload with local Whisper transcription
-- [ ] Add meeting templates by use case: sprint planning, stakeholder review, incident review
-- [ ] Add priority scoring for action items
-- [ ] Add Notion/Jira export integration
+This project directly connects to my experience supporting SAP Cloud Delivery Architecture / AIOps PMO activities and my IBM/Kyndryl IT service operations background. In PMO, technical project coordination, cloud operations, and digital transformation roles, meeting outputs must become clear actions, risks, owners, and decisions.
+
+The project demonstrates how I can translate a real project-management pain point into a working AI-enabled workflow tool.
+
+Relevant target roles:
+
+- Technical Project Coordinator
+- PMO Analyst
+- Junior Project Manager
+- AI Transformation Associate
+- Cloud Operations / AIOps Coordinator
+- Product Operations Analyst
+- Digital Transformation Associate
+
+---
+
+## CV bullet
+
+> Developed an AI-powered Meeting Intelligence Agent using Python, Streamlit and Claude API to convert meeting transcripts into executive summaries, decisions, action-item tables, risk registers, open questions and export-ready PDF/DOCX/CSV/Markdown reports.
+
+---
+
+## LinkedIn post idea
+
+> Meetings create value only when decisions, owners, risks and next steps are captured clearly. I built a Meeting Intelligence Agent to turn unstructured meeting transcripts into PMO-ready outputs: summaries, decisions, action tables, risk registers, open questions, follow-up emails and export-ready reports.
+
+---
+
+## Roadmap
+
+- [x] Add meeting-type templates
+- [x] Add action-item table
+- [x] Add risk register table
+- [x] Add Jira-ready CSV export
+- [x] Add Markdown / Notion-ready export
+- [ ] Add deployed Streamlit demo URL
+- [ ] Add screenshots and short demo GIF
+- [ ] Add optional Jira/Notion API integration
 - [ ] Add multi-model comparison mode
 
-## 📄 License
+---
 
-MIT License. See [LICENSE](LICENSE).
+## Security and data disclaimer
+
+- No API keys are committed.
+- `.env` and Streamlit secrets are ignored.
+- `.env.example` is provided for local setup.
+- User and AI-generated text is escaped before being rendered inside custom HTML cards.
+- This is an independent portfolio project.
+- No confidential SAP, IBM, Kyndryl, university, or client data is used.
+
+See [SECURITY.md](SECURITY.md) for details.
 
 ---
 

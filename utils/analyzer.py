@@ -51,10 +51,10 @@ def _fallback_analysis(
     risks: List[Dict[str, str]] = []
     questions: List[str] = []
 
-    for s in sentences:
-        lower = s.lower()
-        clipped = s[:260]
-        if any(k in lower for k in ["action", "follow up", "will", "owner", "deadline", "by friday", "by monday"]):
+    for sentence in sentences:
+        lower = sentence.lower()
+        clipped = sentence[:260]
+        if any(keyword in lower for keyword in ["action", "follow up", "will", "owner", "deadline", "by friday", "by monday"]):
             actions.append(
                 {
                     "owner": "TBD",
@@ -64,9 +64,9 @@ def _fallback_analysis(
                     "status": "Open",
                 }
             )
-        if any(k in lower for k in ["decided", "decision", "approved", "agreed", "we will"]):
+        if any(keyword in lower for keyword in ["decided", "decision", "approved", "agreed", "we will"]):
             decisions.append(clipped)
-        if any(k in lower for k in ["risk", "blocker", "issue", "delay", "concern", "dependency"]):
+        if any(keyword in lower for keyword in ["risk", "blocker", "issue", "delay", "concern", "dependency"]):
             risks.append(
                 {
                     "risk": clipped,
@@ -76,7 +76,7 @@ def _fallback_analysis(
                     "owner": "TBD",
                 }
             )
-        if "?" in s or any(k in lower for k in ["open question", "clarify", "unknown"]):
+        if "?" in sentence or any(keyword in lower for keyword in ["open question", "clarify", "unknown"]):
             questions.append(clipped)
 
     summary_seed = " ".join(sentences[:3]) if sentences else "The meeting transcript was analyzed successfully."
@@ -120,7 +120,7 @@ def _fallback_analysis(
 
 
 def _extract_json(raw_text: str) -> Dict[str, Any]:
-    """Extract JSON object even if the model wraps it in Markdown."""
+    """Extract a JSON object even when the model wraps it in Markdown."""
     raw_text = raw_text.strip()
     if raw_text.startswith("```"):
         raw_text = re.sub(r"^```(?:json)?", "", raw_text).strip()
@@ -208,8 +208,12 @@ def analyze_meeting(
     if not api_key or "your-api-key" in api_key or "your-real-key" in api_key:
         return _fallback_analysis(transcript, meeting_title, "missing_or_placeholder_api_key", meeting_type)
 
+    model_name = os.getenv("ANTHROPIC_MODEL", "").strip()
+    if not model_name:
+        return _fallback_analysis(transcript, meeting_title, "missing_model_configuration", meeting_type)
+
     try:
-        from anthropic import Anthropic, AuthenticationError
+        from anthropic import Anthropic
     except ImportError as exc:
         raise RuntimeError("anthropic package is not installed. Run: pip install anthropic") from exc
 
@@ -262,16 +266,19 @@ Transcript:
 
     try:
         response = client.messages.create(
-            model=os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+            model=model_name,
             max_tokens=3000,
             temperature=0.2,
             messages=[{"role": "user", "content": prompt}],
         )
-    except AuthenticationError:
-        return _fallback_analysis(transcript, meeting_title, "invalid_api_key", meeting_type)
+        content = "".join(block.text for block in response.content if getattr(block, "type", None) == "text")
+        parsed = _extract_json(content)
+    except Exception as exc:
+        # The public portfolio must remain demoable when a model is retired,
+        # a key is invalid, a quota is exhausted, or the API is unavailable.
+        reason = f"api_error_{exc.__class__.__name__.lower()}"
+        return _fallback_analysis(transcript, meeting_title, reason, meeting_type)
 
-    content = "".join(block.text for block in response.content if getattr(block, "type", None) == "text")
-    parsed = _extract_json(content)
     parsed.setdefault("meeting_type", meeting_type)
     parsed.setdefault("executive_summary", "No summary generated.")
     parsed["key_decisions"] = _ensure_list(parsed.get("key_decisions"))

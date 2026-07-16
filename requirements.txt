@@ -5,5 +5,6 @@ python-docx>=1.1.0
 fpdf2>=2.7.9
 pandas>=2.0.0
 plotly>=5.18.0
-# Optional audio transcription:
+pytest>=8.0.0
+# Optional local audio transcription:
 # openai-whisper>=20231117

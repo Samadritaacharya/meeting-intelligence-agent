@@ -1,96 +1,154 @@
 # Meeting Intelligence Agent
 
-AI-powered PMO workflow assistant that turns raw meeting transcripts into executive summaries, decisions, action-item tables, risk registers, open questions, follow-up emails, and export-ready reports.
+A recruiter-demo-ready PMO workflow assistant that converts meeting transcripts into structured executive summaries, decisions, action items, risks, open questions, follow-up emails, and exportable reports.
 
-## Live demo
+[![Python CI](https://github.com/Samadritaacharya/meeting-intelligence-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/Samadritaacharya/meeting-intelligence-agent/actions/workflows/ci.yml)
 
-[Open the Meeting Intelligence Agent](https://meeting-intelligence-agent.streamlit.app/)
+**Live application:** [meeting-intelligence-agent.streamlit.app](https://meeting-intelligence-agent.streamlit.app/)  
+**Portfolio owner:** [Samadrita Acharya](https://www.linkedin.com/in/samadrita-acharya-a07266184/)
 
-## Demo mode
+## Recruiter quick view
 
-The app can run in portfolio demo mode without external configuration. For a live presentation, use the sample transcript workflow.
+| Area | Evidence in this project |
+|---|---|
+| Business problem | Unstructured meetings create unclear decisions, ownership, deadlines, risks, and follow-up communication. |
+| Product solution | A Streamlit workflow that converts a transcript into PMO-ready outputs and downloadable reports. |
+| Technical implementation | Python, Streamlit, Pandas, Anthropic-compatible API integration, deterministic fallback analysis, PDF/DOCX/CSV/Markdown export. |
+| Delivery thinking | Meeting templates, RAG status, action ownership, risk mitigation, escalation needs, and Jira-ready exports. |
+| Reliability | Safe demo mode without an API key, explicit model configuration, graceful API-error fallback, automated tests, and GitHub Actions. |
+| Data/privacy | Uses user-provided or synthetic sample text; no confidential employer or client data is included. |
 
-## Live demo workflow
+## What the application produces
 
-1. Open the live app.
-2. Select a meeting type / PMO template in the sidebar.
-3. Paste a transcript or click **Load and analyze sample**.
-4. Click **Analyze transcript** when using your own text.
-5. Review the executive summary, decisions, action table, risk register, PMO status and follow-up email.
-6. Export PDF, DOCX, Jira CSV, risk CSV or Markdown notes.
+- leadership-ready executive summary
+- key decisions with context
+- action-item table with owner, deadline, priority, and status
+- risk register with impact, likelihood, mitigation, and owner
+- open questions and clarification needs
+- PMO status card with RAG status and decision/escalation needs
+- professional follow-up email draft
+- downloadable PDF and DOCX reports
+- Jira-ready action-item CSV
+- risk-register CSV
+- Markdown notes for Notion, Confluence, or GitHub
 
-## Business problem
+## Two-minute recruiter demo
 
-Project, product, operations and cloud-delivery meetings often produce unstructured notes. Decisions, owners, risks, deadlines and open questions can become unclear after the meeting, especially in cross-functional environments.
+1. Open the [live app](https://meeting-intelligence-agent.streamlit.app/).
+2. Select a meeting type such as **Steering committee** or **Incident review**.
+3. Choose **Load sample** and click **Load and analyze sample**.
+4. Review the executive summary, RAG status, decisions, actions, and risks.
+5. Download a PDF, DOCX, Jira CSV, risk CSV, or Markdown report.
+6. Explain how the workflow supports PMO governance, technical project coordination, cloud operations, ITSM, or product operations.
 
-This project solves that workflow problem by converting meeting transcripts into PMO-ready outputs that can be reviewed, exported and reused for follow-ups, Jira imports, risk registers and stakeholder communication.
+## Operating modes
 
-## Solution
+### Public portfolio mode
 
-The app provides a simple workflow:
+The deployed application works without secrets through a deterministic fallback analyzer. This keeps the complete sample workflow available to recruiters and reviewers even when no external AI API is configured.
 
-1. Select the meeting type / PMO template.
-2. Paste a transcript, upload audio, or load the sample transcript.
-3. Analyze the meeting.
-4. Review structured outputs: summary, decisions, action table, risks, open questions, PMO status and follow-up email.
-5. Export the results to PDF, DOCX, Jira-ready CSV, risk CSV or Markdown notes.
+### Live Claude mode
 
-## Key features
+Set both variables below locally or in Streamlit Secrets:
 
-- Executive meeting summaries
-- Key decision extraction
-- Structured action-item table with owner, action, due date, priority and status
-- Risk register with impact, likelihood, mitigation and owner
-- Open-question extraction
-- PMO status card with RAG status, health, decision needed and next review
-- Meeting templates for Project sync, Steering committee, Incident review, Sprint planning, Vendor discussion and Stakeholder workshop
-- Follow-up email draft
-- PDF and DOCX report export
-- Jira-ready CSV export for action items
-- Risk CSV export
-- Markdown export for Notion/GitHub notes
-- Demo/fallback mode for portfolio review
+```text
+ANTHROPIC_API_KEY=<your key>
+ANTHROPIC_MODEL=<a model ID available to your Anthropic account>
+```
 
-## Tech stack
+The model ID is deliberately configuration-driven rather than hard-coded. If the key, model, quota, or API is unavailable, the application returns to demo mode instead of breaking.
+
+### Optional local audio mode
+
+Audio transcription requires `openai-whisper` and FFmpeg. It is an optional local capability and is **not presented as guaranteed functionality on the public Streamlit deployment**.
+
+## Architecture
+
+```text
+app.py
+├── Streamlit interface and session state
+├── meeting-type templates
+├── structured PMO result views
+└── report download controls
+
+utils/analyzer.py
+├── Anthropic API workflow
+├── deterministic no-key fallback
+├── response normalization
+├── API/model error handling
+└── optional local Whisper transcription
+
+utils/exporter.py
+├── PDF export
+├── DOCX export
+├── Jira action CSV
+├── risk CSV
+└── Markdown export
+
+sample_data/sample_transcript.txt
+└── synthetic recruiter-demo transcript
+
+tests/test_analyzer.py
+└── fallback, configuration, validation, and JSON parsing tests
+```
+
+## Technology stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | Streamlit |
-| AI workflow | Claude-compatible analysis plus fallback demo mode |
-| Language | Python |
-| Data display | Pandas |
-| Export | python-docx, fpdf2, CSV, Markdown |
-| Deployment | Streamlit Cloud / Docker |
+| Interface | Streamlit |
+| Language | Python 3.11 |
+| AI integration | Anthropic Python SDK with configurable model ID |
+| Demo continuity | Deterministic rule-based fallback analyzer |
+| Data presentation | Pandas |
+| Documents | python-docx, fpdf2, CSV, Markdown |
+| Quality | pytest, Python compile checks, GitHub Actions |
+| Deployment | Streamlit Community Cloud; Docker-compatible repository |
 
-## Quick start locally
+## Run locally
 
 ```bash
 git clone https://github.com/Samadritaacharya/meeting-intelligence-agent.git
 cd meeting-intelligence-agent
-python -m venv venv
-pip install --upgrade pip
-pip install -r requirements.txt
-streamlit run app.py
+python -m venv .venv
 ```
 
-## Why this project is relevant to my target roles
+Activate the environment:
 
-This project connects to PMO, technical project coordination, cloud operations and digital transformation roles because meeting outputs must become clear actions, risks, owners and decisions.
+```bash
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
 
-Relevant target roles:
+# macOS/Linux
+source .venv/bin/activate
+```
 
-- Technical Project Coordinator
-- PMO Analyst
-- Junior Project Manager
-- AI Transformation Associate
-- Cloud Operations / AIOps Coordinator
-- Product Operations Analyst
-- Digital Transformation Associate
+Install, test, and run:
 
-## CV bullet
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m pytest -q
+python -m streamlit run app.py
+```
 
-Developed an AI-powered Meeting Intelligence Agent using Python and Streamlit to convert meeting transcripts into executive summaries, decisions, action-item tables, risk registers, open questions and export-ready PDF/DOCX/CSV/Markdown reports.
+## Why this project matters for my target roles
 
-## Disclaimer
+This project connects AI workflow design with the execution disciplines required in technical project management: converting discussion into decisions, owners, deadlines, risks, governance signals, and reusable stakeholder communication.
 
-This is an independent portfolio project. No confidential SAP, IBM, Kyndryl, university or client data is used.
+It is especially relevant to roles in:
+
+- Technical Project Management and PMO
+- AI Transformation and workflow automation
+- Cloud Delivery and AIOps coordination
+- ITSM / incident-review operations
+- Product and business operations
+- Digital Transformation
+
+## CV / LinkedIn project description
+
+> Built a Python and Streamlit Meeting Intelligence Agent that converts meeting transcripts into executive summaries, decision logs, action-item tables, risk registers, RAG status, follow-up emails, and downloadable PDF/DOCX/CSV/Markdown reports. Added deterministic demo continuity, configurable Anthropic integration, automated tests, and GitHub Actions.
+
+## Responsible portfolio use
+
+This is an independent portfolio project. It is not affiliated with SAP, IBM, Kyndryl, RWTH Aachen University, Anthropic, or any client organization. The repository contains no confidential employer, university, customer, or personal data.

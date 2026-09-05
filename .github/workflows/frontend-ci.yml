@@ -1,0 +1,27 @@
+name: Interactive Web CI
+on:
+  push: { branches: [main], paths: ['frontend/**','.github/workflows/frontend-ci.yml'] }
+  pull_request: { branches: [main], paths: ['frontend/**','.github/workflows/frontend-ci.yml'] }
+permissions: { contents: read }
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: HTTP smoke
+        shell: bash
+        run: |
+          npm start -- -p 3000 >/tmp/web.log 2>&1 &
+          pid=$!; trap 'kill $pid || true; cat /tmp/web.log' EXIT
+          for i in {1..30}; do if curl -fsS http://127.0.0.1:3000/api/run >/tmp/h; then break; fi; sleep 1; done
+          node <<'NODE'
+          const assert=require('node:assert/strict');async function main(){const h=await fetch('http://127.0.0.1:3000/api/run').then(r=>r.json());assert.equal(h.status,'ok');assert.equal(h.paid_api_required,false);for(const s of h.scenarios){const r=await fetch('http://127.0.0.1:3000/api/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({scenario:s.id,intensity:50,context:'Decision: proceed. Alex will own the action by Friday. Risk: dependency delay. Alex owns mitigation.'})});assert.equal(r.status,200);const b=await r.json();assert.equal(b.scenarioId,s.id)}const m=await fetch('http://127.0.0.1:3000/api/run',{method:'POST',body:'{'});assert.equal(m.status,400)}main().catch(e=>{console.error(e);process.exit(1)})
+          NODE
